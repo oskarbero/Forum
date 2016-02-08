@@ -1,11 +1,48 @@
-# Echo client program
-import socket
+# Echo client program - basis for the GET and POST 
+import socket, string
+import sys, getopt
 
-HOST = '127.0.0.1'        # The remote host
-PORT = 50007              # The same port as used by the server
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.connect((HOST, PORT))
-str = "hello"
-s.sendall(str)
-data = s.recv(1024)
-print('Received', repr(data))
+# defualt values
+host = '127.0.0.1'
+port = 50505
+group_name = ''
+
+try:
+    opts, args = getopt.getopt(sys.argv[1:],"p:h:")
+# Wong command - exit
+except getopt.GetoptError:
+    print("error: invalid command")
+    exit(1)
+
+# argv parsing
+for opt, arg in opts:
+    if opt == '-p':
+        port = int(arg)
+    elif opt == '-h':
+        host = arg
+
+# get last argv (should always be group name otherwise its wrong
+group_name = sys.argv.pop()
+if group_name == '':
+    print("error: invalid command")
+    exit(1)
+
+print('port ', port , '\nhost: ' , host , '\ngroupname: ', group_name)
+socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+socket.connect((host, port))
+
+
+# Typed message part ..  take everything up to the ! mark
+while True:
+    data = input('message: ')
+    # check EOL - my own !
+    if data == '<!':
+        exit(1)
+
+    # encode as byte stream
+    socket.send(bytes(data, 'UTF-8'))
+
+    # decode bytestream to plaintext
+    response = (socket.recv(1024)).decode('utf-8')
+    print("response: ", response)
+
