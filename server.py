@@ -4,7 +4,8 @@ import sys
 import getopt
 
 # TODO: Validation for groupname / user id
-# TODO: 
+# TODO: Build and store messages
+
 
 #defualt port
 port = 50505

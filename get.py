@@ -1,6 +1,7 @@
 # Echo client program - basis for the GET and POST 
-import socket, string
-import sys, getopt
+import socket
+import sys
+import getopt
 
 # defualt values
 host = '127.0.0.1'
