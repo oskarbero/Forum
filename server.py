@@ -3,8 +3,8 @@ import socket
 import sys
 import getopt
 import string
+
 # TODO: Add more loops based on the request comming in
-# TODO: Validation for groupname / user id
 # TODO: Build and store messages
 
 #defualt port
@@ -47,7 +47,6 @@ class ThreadedServer(object):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.bind((self.host, self.port))
-        self.num_conn = 0
         self.groups = []
 
 #TODO: Separate threads for get and post .. so that we can have a good protocol convo
@@ -58,7 +57,7 @@ class ThreadedServer(object):
             client.settimeout(60)
             threading.Thread(target = self.listen_to_client,args = (client,address)).start()
             ThreadedServer.num_conn += 1
-            
+
     #post client ?
     def listen_to_client(self, client, address):
         size = 1024
@@ -66,8 +65,9 @@ class ThreadedServer(object):
             try:
                 data = client.recv(size)
                 if data:
+                    #SPLIT FOR GET / POST
                     s = bytes.decode(data, 'utf-8')
-                    #check for meta data
+                       #check for meta data
                     if s[1] == 'g' or s[1] == 'u':
                         if self.validate_header(s):
                             client.send(bytes('Ok', 'utf-8'))
@@ -75,10 +75,9 @@ class ThreadedServer(object):
                                 print("group name: ", s)
                             elif s[1] == 'u': #chose username
                                 print("username: ", s)
-
-                            s = s[3:] #consume the [meta] header
-                        else:
-                            client.send(bytes('Error: Invalid group name', 'utf-8'))
+                                s = s[3:] #consume the [meta] header
+                            else:
+                                client.send(bytes('Error: Invalid group name', 'utf-8'))
                     else:
                         message = s
                         print("message: ", message)
@@ -87,7 +86,7 @@ class ThreadedServer(object):
             except:
                 client.close()
                 ThreadedServer.num_conn -= 1
-            #    print('Client disconnected listening to: ', ThreadedServer.num_conn, 'clients')
+                print('Client disconnected listening to: ', ThreadedServer.num_conn, 'clients')
                 return False
 
     def validate_header(self, info):

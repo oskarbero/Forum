@@ -41,7 +41,6 @@ socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 socket.connect((host, port))
 
 info = "[g]" + group_name
-print(info)
 # 1. SEND GROUP NAME
 socket.send(bytes(info, 'UTF-8'))
 
