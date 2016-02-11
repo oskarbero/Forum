@@ -16,7 +16,7 @@ Prtocol:
 		-> send "post groupname" to specified (or local) server
 
 	2. Server Responds:
-		-> *Ralidate groupname to be only printable characters and no white space
+		-> *Validate groupname to be only printable characters and no white space
 		-> If string starts with "error" client prints error message and exits
 		-> If string is "OK" silently continue
 

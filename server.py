@@ -2,10 +2,10 @@ import threading
 import socket
 import sys
 import getopt
-
+import string
+# TODO: Add more loops based on the request comming in
 # TODO: Validation for groupname / user id
 # TODO: Build and store messages
-
 
 #defualt port
 port = 50505
@@ -50,33 +50,54 @@ class ThreadedServer(object):
         self.num_conn = 0
         self.groups = []
 
+#TODO: Separate threads for get and post .. so that we can have a good protocol convo
     def listen(self):
         self.sock.listen(5)
         while True:
             client, address = self.sock.accept()
-            # not sure if im gonna need that timeout
             client.settimeout(60)
             threading.Thread(target = self.listen_to_client,args = (client,address)).start()
             ThreadedServer.num_conn += 1
-            print('Server Listening to ', ThreadedServer.num_conn, 'clients')
-
+            
+    #post client ?
     def listen_to_client(self, client, address):
         size = 1024
         while True:
             try:
                 data = client.recv(size)
-
-                # here is where we build message / validate
                 if data:
-                    response = data
-                    client.send(response)
+                    s = bytes.decode(data, 'utf-8')
+                    #check for meta data
+                    if s[1] == 'g' or s[1] == 'u':
+                        if self.validate_header(s):
+                            client.send(bytes('Ok', 'utf-8'))
+                            if s[1] == 'g':# choose groupname
+                                print("group name: ", s)
+                            elif s[1] == 'u': #chose username
+                                print("username: ", s)
+
+                            s = s[3:] #consume the [meta] header
+                        else:
+                            client.send(bytes('Error: Invalid group name', 'utf-8'))
+                    else:
+                        message = s
+                        print("message: ", message)
                 else:
                     raise socket.error('Client disconnected')
             except:
                 client.close()
                 ThreadedServer.num_conn -= 1
-                print('Client disconnected listening to: ', ThreadedServer.num_conn, 'clients')
+            #    print('Client disconnected listening to: ', ThreadedServer.num_conn, 'clients')
                 return False
+
+    def validate_header(self, info):
+        p_chars = set(string.printable)
+        if "[g]" not in info[0:3]:
+            if "[u]" not in info:
+                return False
+        if (' ' not in info) and set(info).issubset(p_chars):
+            return True
+        return False
 
 if __name__ == "__main__":
     ThreadedServer('', port).listen()
