@@ -64,38 +64,49 @@ class ThreadedServer(object):
     #post client ?
     def listen_to_client(self, client, address):
         size = 1024
-        post = False
+        data = threading.local()
+        data.msg_flag = False
+        data.groupname = ''
+        data.username = ''
 
         while True:
             try:
-                data = client.recv(size)
+                incoming = client.recv(size)
 
-                if data:
+                if incoming:
                     # Decode the bytes in the message
-                    s = bytes.decode(data, 'utf-8')
+                    s = bytes.decode(incoming, 'utf-8')
 
                     # make it a switch with a function that checks for this stuff
                     if s[:5] == 'post ':
                         #consume post tag
-                        s = s[5:]
-                        print("group name:", s)
+                        data.groupname = s[5:]
+                        print("group name:", data.groupname)
 
-                        if self.validate_header(str):
+                        # validate groupname is printable and has no spaces
+                        if ' ' not in data.groupname and set(data.groupname).issubset(string.printable):
+                            data.msg_flag = True
 
-                            self.post = True
-                            client.send(bytes('Ok', 'UTF-8'))
+                            # Check if it is a new group
+                            if not self.group_exists(data.groupname):
+                                self.groups.append(Group(data.groupname))
+
+                            client.send(bytes('Ok', 'utf-8'))
                         else:
                             client.send(bytes('Error: Invalid group name', 'UTF-8'))
 
                     # id requires the post flag to be true
                     elif s[:3] == 'id ':
                         #consume id tag
-                        s = s[3:]
-                        print("username: ", s)
+                        data.username = s[3:]
+                        print("username: ", data.username)
 
-                        client.send(bytes('Ok', 'UTF-8'))
-                        #else:
-                            #client.send(bytes('Error: Invalid username', 'UTF-8'))
+                        # validate username is printable
+                        if set(data.username).issubset(string.printable):
+                            client.send(bytes('Ok', 'UTF-8'))
+                        else:
+                            data.msg_flag = False
+                            client.send(bytes('Error: Invalid username', 'UTF-8'))
 
                     # Need mechanism for sending all the messages
                     elif s[:4] == 'get ':
@@ -109,6 +120,7 @@ class ThreadedServer(object):
                     else:
                         message = s
                         print("message:", message)
+                        data.msg_flag = False
                 else:
                     raise socket.error('Client disconnected')
             except:
@@ -123,11 +135,10 @@ class ThreadedServer(object):
                 return True
         return False
 
-    def validate_header(self, info):
-        p_chars = set(string.printable)
-        if (' ' not in info) and set(info).issubset(p_chars):
-            return True
-        return False
+    # Might not need the timestamp can probably generate it here
+    def construct_header(self, ip, port, uname, timestamp):
+        header = "From " + uname + '/' + ip + ':' + port + ' ' + timestamp
+        return True
 
 if __name__ == "__main__":
     ThreadedServer('', port).listen()

@@ -40,20 +40,19 @@ else:
 socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 socket.connect((host, port))
 
-info = "post " + group_name
-info = bytes(info)
+info = bytes("post " + group_name, 'UTF-8')
 # 1. SEND: post group_name
 socket.send(info)
 
 # 2. Check response - ok or error
-response = (socket.recv(1024)).decode('UTF-8')
+response = socket.recv(1024).decode('UTF-8')
 if not (response == 'Ok'):
-    print(response) #error
+    #print(response) #error
     exit(1)
 
 # 3. Send user name
-info ="id " + getpass.getuser()
-socket.send(bytes(info)
+info = bytes("id " + getpass.getuser(), 'UTF-8')
+socket.send(info)
 
 # 4. Check response
 response = socket.recv(1024)
