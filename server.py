@@ -43,6 +43,7 @@ class Message:
 class ThreadedServer(object):
     num_conn = 0
     groups = []
+    mutex_lock = threading.Lock()
 
     def __init__(self, host, port):
         self.host = host
@@ -64,6 +65,7 @@ class ThreadedServer(object):
     #post client ?
     def listen_to_client(self, client, address):
         size = 1024
+        # Data local to the thread
         data = threading.local()
         data.msg_flag = False
         data.groupname = ''
@@ -89,7 +91,11 @@ class ThreadedServer(object):
 
                             # Check if it is a new group
                             if not self.group_exists(data.groupname):
+                                self.mutex_lock.acquire()
                                 self.groups.append(Group(data.groupname))
+                                self.mutex_lock.release()
+                            else:
+                                print("Group already exists in memory")
 
                             client.send(bytes('Ok', 'utf-8'))
                         else:
@@ -116,7 +122,7 @@ class ThreadedServer(object):
                         print("Messages: ")
                         client.send(bytes('Ok', 'UTF-8'))
 
-                    # otherwise we are good to go with getting our new message
+                    # Add the given message to the given group
                     else:
                         message = s
                         print("message:", message)
