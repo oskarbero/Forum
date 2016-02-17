@@ -6,7 +6,7 @@ import getpass
 import string
 # defualt values
 host = '127.0.0.1'
-port = 50505
+port = 55555
 group_name = ''
 
 try:
@@ -40,9 +40,10 @@ else:
 socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 socket.connect((host, port))
 
-info = "[g]" + group_name
-# 1. SEND GROUP NAME
-socket.send(bytes(info, 'UTF-8'))
+info = "post " + group_name
+info = bytes(info)
+# 1. SEND: post group_name
+socket.send(info)
 
 # 2. Check response - ok or error
 response = (socket.recv(1024)).decode('UTF-8')
@@ -51,12 +52,13 @@ if not (response == 'Ok'):
     exit(1)
 
 # 3. Send user name
-info ="[u]" + getpass.getuser()
-socket.send(bytes(info, 'UTF-8'))
+info ="id " + getpass.getuser()
+socket.send(bytes(info)
 
 # 4. Check response
-response = (socket.recv(1024)).decode('UTF-8')
-if not (response == 'Ok'):
+response = socket.recv(1024)
+#.decode('UTF-8')
+if not (response.decode('UTF-8') == 'Ok'):
     print(response) #error
     exit(1)
 
@@ -71,4 +73,4 @@ while True:
 
     # decode bytestream to plaintext
     #response = (socket.recv(1024)).decode('utf-8')
-   # print("response: ", response)
+    #print("response: ", response)

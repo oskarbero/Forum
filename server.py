@@ -4,11 +4,11 @@ import sys
 import getopt
 import string
 
-# TODO: Add more loops based on the request comming in
+# TODO: Synchronize on num connections / groups
 # TODO: Build and store messages
 
 #defualt port
-port = 50505
+port = 55555
 
 try:
     opts, args = getopt.getopt(sys.argv[1:],"p:")
@@ -17,7 +17,7 @@ except getopt.GetoptError:
     print("error: invalid command")
     exit(1)
 
-#get argument
+# get argument
 for opt, arg in opts:
     if opt == '-p':
         port = int(arg)
@@ -30,17 +30,20 @@ class Group:
         self.name = name
         self.messages = []
 
+
 class Message:
     def __init__(self, ip, port, u_name, timestamp):
         self.ip = ip
         self.port = port
         self.u_name = u_name
         self.timestamp = timestamp
-        self.msg = []
+        self.msg = ''
 
 
 class ThreadedServer(object):
     num_conn = 0
+    groups = []
+
     def __init__(self, host, port):
         self.host = host
         self.port = port
@@ -61,26 +64,51 @@ class ThreadedServer(object):
     #post client ?
     def listen_to_client(self, client, address):
         size = 1024
+        post = False
+
         while True:
             try:
                 data = client.recv(size)
+
                 if data:
-                    #SPLIT FOR GET / POST
+                    # Decode the bytes in the message
                     s = bytes.decode(data, 'utf-8')
-                       #check for meta data
-                    if s[1] == 'g' or s[1] == 'u':
-                        if self.validate_header(s):
-                            client.send(bytes('Ok', 'utf-8'))
-                            if s[1] == 'g':# choose groupname
-                                print("group name: ", s)
-                            elif s[1] == 'u': #chose username
-                                print("username: ", s)
-                                s = s[3:] #consume the [meta] header
-                            else:
-                                client.send(bytes('Error: Invalid group name', 'utf-8'))
+
+                    # make it a switch with a function that checks for this stuff
+                    if s[:5] == 'post ':
+                        #consume post tag
+                        s = s[5:]
+                        print("group name:", s)
+
+                        if self.validate_header(str):
+
+                            self.post = True
+                            client.send(bytes('Ok', 'UTF-8'))
+                        else:
+                            client.send(bytes('Error: Invalid group name', 'UTF-8'))
+
+                    # id requires the post flag to be true
+                    elif s[:3] == 'id ':
+                        #consume id tag
+                        s = s[3:]
+                        print("username: ", s)
+
+                        client.send(bytes('Ok', 'UTF-8'))
+                        #else:
+                            #client.send(bytes('Error: Invalid username', 'UTF-8'))
+
+                    # Need mechanism for sending all the messages
+                    elif s[:4] == 'get ':
+                        #consume get tag
+                        s = s[4:]
+                        print("[get]group name: ", s)
+                        print("Messages: ")
+                        client.send(bytes('Ok', 'UTF-8'))
+
+                    # otherwise we are good to go with getting our new message
                     else:
                         message = s
-                        print("message: ", message)
+                        print("message:", message)
                 else:
                     raise socket.error('Client disconnected')
             except:
@@ -89,11 +117,14 @@ class ThreadedServer(object):
                 print('Client disconnected listening to: ', ThreadedServer.num_conn, 'clients')
                 return False
 
+    def group_exists(self, name):
+        for g in self.groups:
+            if g.name == name:
+                return True
+        return False
+
     def validate_header(self, info):
         p_chars = set(string.printable)
-        if "[g]" not in info[0:3]:
-            if "[u]" not in info:
-                return False
         if (' ' not in info) and set(info).issubset(p_chars):
             return True
         return False
