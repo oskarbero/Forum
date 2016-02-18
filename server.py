@@ -5,7 +5,7 @@ import getopt
 import string
 import time, datetime
 
-# TODO: Synchronize on num connections / groups
+# TODO: Better error descriptions etc...
 # TODO: Better Get client - find a way to just recieve all info back to back
 # TODO: Clean up clean up .. everybody cleanup!
 
@@ -121,6 +121,7 @@ class ThreadedServer(object):
                                 client.send(bytes('Ok', 'UTF-8'))
                                 continue
                             else:
+                                # Group You're getting from does not exist
                                 client.send(bytes('Error: Invalid group name', 'UTF-8'))
                                 raise socket.error('Client disconnected')
 
