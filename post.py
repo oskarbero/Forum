@@ -68,7 +68,6 @@ if not (response == 'Ok'):
 # Typed message part ..  take everything up to the ! mark
 tot = ''
 data = input('Message: \n')
-
 while not data == '<!':
     # Total message and newline when newline is pressed
     tot = tot + data + '\n'

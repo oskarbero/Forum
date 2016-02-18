@@ -45,18 +45,16 @@ socket.connect((host, port))
 info = bytes("get " + group_name, 'UTF-8')
 socket.send(info)
 
-
-# 2. Check response - ok or error
+# TODO: find a better way to do get client
 response = socket.recv(1024).decode('UTF-8')
 
 if not response == 'Ok':
-    print(response) #error
-    exit(1)
-print(response)
-# 3. Print messages from the server
-while True:
-    response = socket.recv(1024).decode('UTF-8')
     print(response)
+    exit(1)
+
+socket.send(bytes(' ', 'UTF-8'))
+response = socket.recv(1024).decode('UTF-8')
+print(response)
 
 exit(0)
 
