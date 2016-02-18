@@ -3,6 +3,7 @@ import socket
 import sys
 import getopt
 import string
+import time, datetime
 
 # TODO: Synchronize on num connections / groups
 # TODO: Build and store messages
@@ -32,12 +33,10 @@ class Group:
 
 
 class Message:
-    def __init__(self, ip, port, u_name, timestamp):
-        self.ip = ip
-        self.port = port
-        self.u_name = u_name
-        self.timestamp = timestamp
-        self.msg = ''
+    def __init__(self, header, message):
+        self.header = header
+        self.msg = message
+        self.total = "{}\n{}".format(header,message)
 
 
 class ThreadedServer(object):
@@ -53,7 +52,6 @@ class ThreadedServer(object):
         self.sock.bind((self.host, self.port))
         self.groups = []
 
-#TODO: Separate threads for get and post .. so that we can have a good protocol convo
     def listen(self):
         self.sock.listen(5)
         while True:
@@ -67,84 +65,119 @@ class ThreadedServer(object):
         size = 1024
         # Data local to the thread
         data = threading.local()
+        # msg_flag is for avoiding confusion if for example the message starts with the word post
         data.msg_flag = False
-        data.groupname = ''
-        data.username = ''
+        data.get_flag = False
 
         while True:
             try:
                 incoming = client.recv(size)
-
                 if incoming:
                     # Decode the bytes in the message
                     s = bytes.decode(incoming, 'utf-8')
 
-                    # make it a switch with a function that checks for this stuff
+                    # $POST GROUP_NAME
                     if s[:5] == 'post ':
-                        #consume post tag
                         data.groupname = s[5:]
-                        print("group name:", data.groupname)
 
                         # validate groupname is printable and has no spaces
-                        if ' ' not in data.groupname and set(data.groupname).issubset(string.printable):
+                        if self.valid_group(data.groupname):
                             data.msg_flag = True
-
+                            #print(data.groupname)
+                            exists, grp = self.get_group(data.groupname)
                             # Check if it is a new group
-                            if not self.group_exists(data.groupname):
+                            if not exists:
+                                data.group = Group(data.groupname)
+                                # Prevent race conditions on adding a group
                                 self.mutex_lock.acquire()
-                                self.groups.append(Group(data.groupname))
+                                self.groups.append(data.group)
                                 self.mutex_lock.release()
                             else:
-                                print("Group already exists in memory")
+                                data.group = grp
+
 
                             client.send(bytes('Ok', 'utf-8'))
                         else:
                             client.send(bytes('Error: Invalid group name', 'UTF-8'))
+                            raise socket.error('Client disconnected')
 
-                    # id requires the post flag to be true
-                    elif s[:3] == 'id ':
-                        #consume id tag
+                    # $ID USERNAME
+                    elif s[:3] == 'id ' and data.msg_flag:
                         data.username = s[3:]
-                        print("username: ", data.username)
-
+                        #print(data.username)
                         # validate username is printable
                         if set(data.username).issubset(string.printable):
                             client.send(bytes('Ok', 'UTF-8'))
                         else:
-                            data.msg_flag = False
                             client.send(bytes('Error: Invalid username', 'UTF-8'))
+                            raise socket.error('Client disconnected')
 
-                    # Need mechanism for sending all the messages
+                    # $GET GROUP_NAME
                     elif s[:4] == 'get ':
                         #consume get tag
-                        s = s[4:]
-                        print("[get]group name: ", s)
-                        print("Messages: ")
-                        client.send(bytes('Ok', 'UTF-8'))
+                        data.groupname = s[4:]
+                        data.get_flag = True
 
-                    # Add the given message to the given group
+                        if self.valid_group(data.groupname):
+                            exists, grp = self.get_group(data.groupname)
+
+                            # Check if it is a new group
+                            if exists:
+                                client.send(bytes('Ok', 'UTF-8'))
+                                print('get grp name: ', grp.name)
+                            else:
+                                client.send(bytes('Error: Invalid group name', 'UTF-8'))
+                                raise socket.error('Client disconnected')
+
+                    # SAVE MESSAGE FROM USER
+                    elif data.msg_flag:
+                        #synchronize to not overwrite anything
+                        self.mutex_lock.acquire()
+                        data.group.messages.append(self.build_message(address, data.username, s))
+                        self.mutex_lock.release()
+                        # Done with Post Client
+                        client.close()
+                        return True
+
+                    # TRANSMIT MESSAGE TO USER
+                    elif data.get_flag:
+                        client.send(bytes("messages: " + grp.messages.count() + '\n', 'UTF-8'))
+
+                        for msg in self.get_group(data.groupname):
+                            client.send(bytes(msg.total, 'UTF-8'))
+
+                        # Done with Get Client
+                        client.close()
+                        return True
                     else:
-                        message = s
-                        print("message:", message)
-                        data.msg_flag = False
+                        client.send(bytes('Error: Invalid Command', 'UTF-8'))
+                        raise socket.error('Client disconnected')
                 else:
                     raise socket.error('Client disconnected')
             except:
                 client.close()
                 ThreadedServer.num_conn -= 1
-                print('Client disconnected listening to: ', ThreadedServer.num_conn, 'clients')
+                #print('Client disconnected listening to: ', ThreadedServer.num_conn, 'clients') #not really needed
                 return False
 
-    def group_exists(self, name):
-        for g in self.groups:
-            if g.name == name:
-                return True
+    # Validate group name
+    def valid_group(self, grpname):
+        if ' ' not in grpname and set(grpname).issubset(string.printable):
+            return True
         return False
 
-    # Might not need the timestamp can probably generate it here
-    def construct_header(self, ip, port, uname, timestamp):
-        header = "From " + uname + '/' + ip + ':' + port + ' ' + timestamp
-        return True
+    # Find group in our array
+    def get_group(self, name):
+        for g in self.groups:
+            if g.name == name:
+                return True, g
+        return False, False
+
+    # TODO: Make sure it's compliant with the spec for Assignment 3
+    def build_message(self, address, uname, message):
+        timestamp = datetime.datetime.fromtimestamp(time.time()).strftime('%a %b %d %H:%M:%S %Z %Y')
+        header = "From {}/{}:{} {}".format(uname, address[0],address[1] , timestamp)
+        return Message(header, message)
 
 if __name__ == "__main__":
     ThreadedServer('', port).listen()
