@@ -8,6 +8,7 @@ import time, datetime
 # TODO: Better error descriptions etc...
 # TODO: Better Get client - find a way to just recieve all info back to back
 # TODO: Clean up clean up .. everybody cleanup!
+# TODO: Got a job fuck yeahhhh!!!!! 
 
 #defualt port
 port = 55555
